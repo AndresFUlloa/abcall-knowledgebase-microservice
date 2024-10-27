@@ -6,7 +6,9 @@ from chalice import Chalice, BadRequestError, CognitoUserPoolAuthorizer, Unautho
 from chalicelib.src.config.db import init_db
 from chalicelib.src.modules.application.commands.create_article import CreateKnowledgebaseArticleCommand
 from chalicelib.src.modules.application.commands.create_tag import CreateTagCommand
+from chalicelib.src.modules.application.commands.delete_article import DeleteKnowledgebaseArticleCommand
 from chalicelib.src.modules.application.commands.delete_tag import DeleteTagCommand
+from chalicelib.src.modules.application.commands.update_article import UpdateKnowledgebaseArticleCommand
 from chalicelib.src.modules.application.commands.update_tag import UpdateTagCommand
 from chalicelib.src.modules.application.queries.get_article import GetKnowledgebaseArticleQuery
 from chalicelib.src.modules.application.queries.get_articles import GetKnowledgebaseArticlesQuery
@@ -190,6 +192,7 @@ def knowledgebase_post():
         LOGGER.error(f"Error creating knowledgebase article: {str(e)}")
         raise ChaliceViewError('Error creating knowledgebase article')
 
+
 @app.route('/knowledgebase/filters', cors=True, methods=['POST'], authorizer=authorizer)
 def knowledgebase_filters():
     auth_info = app.current_request.context['authorizer']['claims']
@@ -207,6 +210,9 @@ def knowledgebase_filters():
     try:
         result = execute_query(query).result
         return result
+    except NameError as ne:
+        LOGGER.error(f"Error updating article: {str(ne)}")
+        raise UnauthorizedError("User does not have access to the client")
     except Exception as e:
         LOGGER.error(f"Error loading knowledgebase articles: {str(e)}")
         raise ChaliceViewError('Error loading knowledgebase articles')
@@ -233,6 +239,56 @@ def get_knowledgebase_article(article_id):
         raise UnauthorizedError('User does not have access to the client')
 
     return result
+
+
+@app.route('/knowledgebase/{article_id}', cors=True, methods=['DELETE'], authorizer=authorizer)
+def delete_knowledgebase_article(article_id):
+    auth_info = app.current_request.context['authorizer']['claims']
+    check_roles(auth_info, ['superadmin', 'admin', 'agent'])
+
+    if 'custom:client_id' not in auth_info:
+        LOGGER.error(f"User: {auth_info['sub']} does not have client id")
+        raise BadRequestError('User does not have client id')
+
+    command = DeleteKnowledgebaseArticleCommand(
+        article_id=article_id,
+        client_id=int(auth_info['custom:client_id'])
+    )
+
+    try:
+        execute_command(command)
+        return {'status': 'success', 'message': 'Article deleted'}
+    except NameError as ne:
+        LOGGER.error(f"Error updating article: {str(ne)}")
+        raise UnauthorizedError("User does not have access to the client")
+    except Exception as e:
+        LOGGER.error(f"Error loading knowledgebase articles: {str(e)}")
+        raise ChaliceViewError('Error loading knowledgebase articles')
+
+
+@app.route('/knowledgebase/{article_id}', cors=True, methods=['PUT'], authorizer=authorizer)
+def update_knowledgebase_article(article_id):
+    auth_info = app.current_request.context['authorizer']['claims']
+    check_roles(auth_info, ['superadmin', 'admin', 'agent'])
+
+    if 'custom:client_id' not in auth_info:
+        LOGGER.error(f"User: {auth_info['sub']} does not have client id")
+        raise BadRequestError('User does not have client id')
+
+    client_as_json = app.current_request.json_body
+    client_as_json['client_id'] = int(auth_info['custom:client_id'])
+
+    command = UpdateKnowledgebaseArticleCommand(
+        article_id=article_id,
+        data=client_as_json
+    )
+
+    try:
+        execute_command(command)
+        return {'status': 'success', 'message': 'Article updated'}
+    except Exception as e:
+        LOGGER.error(f"Error updating knowledgebase article: {str(e)}")
+        raise ChaliceViewError('Error updating knowledgebase article')
 
 
 @app.route('/migrate', methods=['POST'])

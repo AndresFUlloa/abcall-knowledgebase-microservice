@@ -42,11 +42,13 @@ class KnowledgeBaseArticleRepositoryPostgres(KnowledgeBaseArticleRepository):
         json_article['tags'] = tag_schema.dump(article.tags)
         return json_article
 
-    def remove(self, article_id):
+    def remove(self, article_id, client_id):
         LOGGER.info(f"Repository remove article: {article_id}")
         entity = self.db_session.query(KnowledgeBaseArticle).filter_by(id=article_id).first()
         if not entity:
             raise ValueError("Article not found")
+        if entity.client_id != client_id:
+            raise NameError("Invalid Client Id")
         self.db_session.delete(entity)
         self.db_session.commit()
         LOGGER.info(f"Article {article_id} removed successfully")
@@ -86,6 +88,8 @@ class KnowledgeBaseArticleRepositoryPostgres(KnowledgeBaseArticleRepository):
         entity = self.db_session.query(KnowledgeBaseArticle).filter_by(id=article_id).first()
         if not entity:
             raise ValueError("Article not found")
+        if entity.client_id != data['client_id']:
+            raise NameError("Invalid Client Id")
 
         if 'title' in data:
             entity.title = data['title']
