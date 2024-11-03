@@ -437,3 +437,109 @@ def test_update_knowledgebase_article():
                 response_data = json.loads(response.body)
                 assert response_data['status'] == 'success'
                 assert response_data['message'] == 'Article updated'
+
+
+def test_unauthorized_user_role_for_tag():
+    mock_context = {
+        'authorizer': {
+            'claims': {
+                'sub': 'user123',
+                'email': 'user@example.com',
+                'custom:client_id': '3',
+                'custom:custom:userRole': 'user'
+            }
+        }
+    }
+
+    mock_command_response = {
+        "id": 1,
+        "name": "test",
+        "client_id": 3
+    }
+    mock_request_body = {
+        "name": "test"
+    }
+
+    mock_request = MagicMock()
+    mock_request.context = mock_context
+    mock_request.headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer asdajdahsda'
+    }
+    mock_request.json_body = mock_request_body
+
+    with patch('chalice.app.Request', return_value=mock_request):
+        with patch('chalicelib.src.modules.infrastructure.repositories.tags_repository.TagRepositoryPostgres.add',
+                   return_value=mock_command_response):
+            with Client(app) as client:
+                response = client.http.post(
+                    '/knowledgebase/tag',
+                    headers={'Content-Type': 'application/json'},
+                    body=json.dumps(mock_request.json_body)
+                )
+                assert response.status_code == 500
+                response_data = json.loads(response.body)
+                assert response_data['Message'] == "Error checking user role"
+
+
+def test_missing_name_field_in_tag_post():
+    mock_context = {
+        'authorizer': {
+            'claims': {
+                'sub': 'user123',
+                'email': 'user@example.com',
+                'custom:client_id': '3',
+                'custom:custom:userRole': 'superadmin'
+            }
+        }
+    }
+
+    mock_request = MagicMock()
+    mock_request.context = mock_context
+    mock_request.headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer asdajdahsda'
+    }
+    mock_request.json_body = {}
+
+    with patch('chalice.app.Request', return_value=mock_request):
+        with Client(app) as client:
+            response = client.http.post(
+                '/knowledgebase/tag',
+                headers={'Content-Type': 'application/json'},
+                body=json.dumps(mock_request.json_body)
+            )
+            assert response.status_code == 400
+            response_data = json.loads(response.body)
+            assert response_data['Message'] == 'Missing required field: name'
+
+
+def test_missing_client_id_in_auth_info():
+    mock_context = {
+        'authorizer': {
+            'claims': {
+                'sub': 'user123',
+                'email': 'user@example.com',
+                'custom:custom:userRole': 'superadmin'
+            }
+        }
+    }
+
+    mock_request = MagicMock()
+    mock_request.context = mock_context
+    mock_request.headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer asdajdahsda'
+    }
+    mock_request.json_body = {"name": "test"}
+
+    with patch('chalice.app.Request', return_value=mock_request):
+        with Client(app) as client:
+            response = client.http.post(
+                '/knowledgebase/tag',
+                headers={'Content-Type': 'application/json'},
+                body=json.dumps(mock_request.json_body)
+            )
+            assert response.status_code == 400
+            response_data = json.loads(response.body)
+            assert response_data['Message'] == 'User does not have client id'

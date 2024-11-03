@@ -1,0 +1,5 @@
+[run]
+omit =
+    chalicelib/src/seedwork/*
+    chalicelib/src/modules/infrastructure/exceptions.py
+    chalicelib/src/modules/infrastructure/repositories/knowledge_base_article.py
