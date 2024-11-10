@@ -17,6 +17,6 @@ class GetKnowledgebaseArticleHandler(QueryBaseHandler):
 
 
 @execute_query.register(GetKnowledgebaseArticleQuery)
-def execute_get_client(query: GetKnowledgebaseArticleQuery):
+def execute_get_article(query: GetKnowledgebaseArticleQuery):
     handler = GetKnowledgebaseArticleHandler()
     return handler.handle(query)

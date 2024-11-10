@@ -17,6 +17,6 @@ class GetClientHandler(QueryBaseHandler):
 
 
 @execute_query.register(GetTagQuery)
-def execute_get_client(query: GetTagQuery):
+def execute_get_tag(query: GetTagQuery):
     handler = GetClientHandler()
     return handler.handle(query)
