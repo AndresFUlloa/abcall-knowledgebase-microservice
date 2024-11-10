@@ -1,4 +1,6 @@
 import enum
+
+from marshmallow_enum import EnumField
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Enum, Text, UniqueConstraint
@@ -89,6 +91,8 @@ class KnowledgeBaseArticleSchema(SQLAlchemyAutoSchema):
 
 
 class FlowStepSchema(SQLAlchemyAutoSchema):
+    type = EnumField(StepType, by_value=True)
+
     class Meta:
         model = FlowStep
         load_instance = True
