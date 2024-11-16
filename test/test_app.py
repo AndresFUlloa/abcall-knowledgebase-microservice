@@ -520,7 +520,7 @@ def test_missing_client_id_in_auth_info():
             'claims': {
                 'sub': 'user123',
                 'email': 'user@example.com',
-                'custom:custom:userRole': 'superadmin'
+                'custom:custom:userRole': 'superadmin',
             }
         }
     }
@@ -543,3 +543,60 @@ def test_missing_client_id_in_auth_info():
             assert response.status_code == 400
             response_data = json.loads(response.body)
             assert response_data['Message'] == 'User does not have client id'
+
+
+def test_risk_evaluation():
+    # Mock context with authorizer claims
+    mock_context = {
+        'authorizer': {
+            'claims': {
+                'sub': 'user123',
+                'email': 'user@example.com',
+                'custom:custom:userRole': 'superadmin',
+                'custom:client_id': '3',
+            }
+        }
+    }
+
+    # Mock request object
+    mock_request = MagicMock()
+    mock_request.context = mock_context
+    mock_request.headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer asdajdahsda'
+    }
+
+    # Mock the facade to return a fixed risk level and recommendation
+    mock_risk_level = 'medio'
+    mock_recommendation = 'Revisar la configuración del dispositivo y verificar la conexión.'
+
+    # Use patch to mock the request and test the endpoint
+    with patch('chalicelib.src.modules.infrastructure.fecades.MicroservicesFacade') as MockFacade:
+        mock_facade_instance = MockFacade.return_value
+        mock_facade_instance.generate_risk_evaluation.return_value = (mock_risk_level, mock_recommendation)
+
+        with patch('chalice.app.Request', return_value=mock_request):
+            with Client(app) as client:
+                response = client.http.get(
+                    '/knowledgebase/risk-evaluation/1',
+                    headers={'Content-Type': 'application/json'}
+                )
+
+                # Assert the response status code
+                assert response.status_code == 200
+
+                # Assert the structure of the response
+                response_data = json.loads(response.body)
+                assert 'incident_id' in response_data
+                assert 'risk_level' in response_data
+                assert 'recommendation' in response_data
+
+                # Check that incident_id matches
+                assert response_data['incident_id'] == '1'
+
+                # Check risk_level is one of the expected values
+                assert response_data['risk_level'] in ['alto', 'medio', 'bajo']
+
+                # Check recommendation is a non-empty string
+                assert isinstance(response_data['recommendation'], str)
+                assert len(response_data['recommendation']) > 0
