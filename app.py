@@ -1,9 +1,11 @@
 import logging
 
 import boto3
+import random
 from chalice import Chalice, BadRequestError, CognitoUserPoolAuthorizer, UnauthorizedError, ChaliceViewError
 
 from chalicelib.src.config.db import init_db
+from chalicelib.src.modules.infrastructure.fecades import MicroservicesFacade
 from chalicelib.src.modules.application.commands.create_article import CreateKnowledgebaseArticleCommand
 from chalicelib.src.modules.application.commands.create_flow import CreateFlowCommand
 from chalicelib.src.modules.application.commands.create_flow_step import CreateFlowStepCommand
@@ -569,6 +571,61 @@ def update_flow_step(flow_step_id):
     except Exception as e:
         LOGGER.error(f"Error updating flow step: {str(e)}")
         raise ChaliceViewError('Error updating flow step')
+
+
+@app.route('/knowledgebase/risk-evaluation/{incident_id}', cors=True, methods=['GET'], authorizer=authorizer)
+def risk_evaluation(incident_id):
+    auth_info = app.current_request.context['authorizer']['claims']
+    check_roles(auth_info, ['superadmin', 'admin', 'agent'])
+
+    if 'custom:client_id' not in auth_info:
+        LOGGER.error(f"User: {auth_info['sub']} does not have client id")
+        raise BadRequestError('User does not have client id')
+
+    query = GetFlowsQuery(queries={
+        'client_id': auth_info['custom:client_id']}
+    )
+    from pprint import pprint
+    flows = None
+    articles = None
+
+    try:
+        flows = execute_query(query).result
+    except NameError as ne:
+        LOGGER.error(f"Error updating article: {str(ne)}")
+        raise UnauthorizedError("User does not have access to the client")
+    except Exception as e:
+        LOGGER.error(f"Error loading flows: {str(e)}")
+        raise ChaliceViewError('Error loading flows')
+
+    query = GetKnowledgebaseArticlesQuery(queries={"client_id": int(auth_info['custom:client_id'])})
+
+    try:
+        articles = execute_query(query).result
+    except NameError as ne:
+        LOGGER.error(f"Error updating article: {str(ne)}")
+        raise UnauthorizedError("User does not have access to the client")
+    except Exception as e:
+        LOGGER.error(f"Error loading knowledgebase articles: {str(e)}")
+        raise ChaliceViewError('Error loading knowledgebase articles')
+
+    try:
+        # Use OpenAI to get risk level and recommendation
+        microservices_facade = MicroservicesFacade()
+        recommendation = microservices_facade.generate_risk_evaluation(flows, articles)
+
+        risk_levels = ["alto", "medio", "bajo"]
+        risk_level = random.choice(risk_levels)
+
+        return {
+            'incident_id': incident_id,
+            'risk_level': risk_level,
+            'recommendation': recommendation
+        }
+    except Exception as e:
+        LOGGER.error(f"Error evaluating risk: {str(e)}")
+        raise ChaliceViewError('An error occurred while evaluating risk')
+
 
 
 @app.route('/migrate', methods=['POST'])

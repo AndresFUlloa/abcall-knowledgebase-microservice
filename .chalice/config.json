@@ -3,7 +3,8 @@
   "app_name": "abcall-knowledgebase-microservice",
   "environment_variables": {
     "DATABASE_URL": "postgresql://bunny:password123@abcall-knowledgebase-service-database.cxsvh4nwbuit.us-east-1.rds.amazonaws.com:5432/postgres",
-    "ENVIRONMENT": "production"
+    "ENVIRONMENT": "production",
+    "OPENAI_API_KEY": "xxx"
   },
   "stages": {
     "prod": {
