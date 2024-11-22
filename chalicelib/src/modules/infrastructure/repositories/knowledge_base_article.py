@@ -1,6 +1,6 @@
 import logging
 
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 
 from chalicelib.src.config.db import init_db
 from chalicelib.src.modules.domain.repository import KnowledgeBaseArticleRepository
@@ -53,7 +53,7 @@ class KnowledgeBaseArticleRepositoryPostgres(KnowledgeBaseArticleRepository):
         self.db_session.commit()
         LOGGER.info(f"Article {article_id} removed successfully")
 
-    def get_all(self, query: dict[str, str]):
+    def get_all(self, query: dict = None):
         article_schema = KnowledgeBaseArticleSchema(many=True)
 
         filters = []
@@ -63,13 +63,13 @@ class KnowledgeBaseArticleRepositoryPostgres(KnowledgeBaseArticleRepository):
             title = clean_string(query['title'])
             words = list(set(title.split(" ")))
             if words:
-                title_conditions = [KnowledgeBaseArticle.title.contains(word) for word in words]
+                title_conditions = [func.lower(KnowledgeBaseArticle.title).contains(word.lower()) for word in words]
                 filters.append(or_(*title_conditions))
         if 'content' in query:
             content = clean_string(query['content'])
             words = list(set(content.split(" ")))
             if words:
-                content_conditions = [KnowledgeBaseArticle.content.contains(word) for word in words]
+                content_conditions = [func.lower(KnowledgeBaseArticle.content).contains(word) for word in words]
                 filters.append(or_(*content_conditions))
         if 'tags' in query:
             for tag_id in query['tags']:
