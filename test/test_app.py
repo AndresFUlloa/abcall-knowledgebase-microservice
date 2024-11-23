@@ -600,3 +600,749 @@ def test_risk_evaluation():
                 # Check recommendation is a non-empty string
                 assert isinstance(response_data['recommendation'], str)
                 assert len(response_data['recommendation']) > 0
+
+
+def test_add_flow():
+    # Mock context with authorizer claims
+    mock_context = {
+        'authorizer': {
+            'claims': {
+                'sub': 'user123',
+                'email': 'user@example.com',
+                'custom:client_id': '3',
+                'custom:custom:userRole': 'superadmin'
+            }
+        }
+    }
+
+    # Mock request payload
+    mock_request_body = {
+        "name": "Test Flow",
+        "description": "This is a test flow",
+        "tags": [1, 2]
+    }
+
+    # Mock the response from the repository
+    mock_command_response = {
+        "id": 1,
+        "name": "Test Flow",
+        "description": "This is a test flow",
+        "client_id": 3,
+        "tags": [{"id": 1, "name": "Tag1"}, {"id": 2, "name": "Tag2"}]
+    }
+
+    # Mock request
+    mock_request = MagicMock()
+    mock_request.context = mock_context
+    mock_request.headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer mocktoken'
+    }
+    mock_request.json_body = mock_request_body
+
+    with patch('chalice.app.Request', return_value=mock_request):
+        # Mock the command execution to return the mocked flow
+        with patch('chalicelib.src.modules.infrastructure.repositories.flows_repository.FlowsRepositoryPostgres.add',
+                   return_value=mock_command_response):
+            with Client(app) as client:
+                # Perform the POST request to the endpoint
+                response = client.http.post(
+                    '/knowledgebase/flow',
+                    headers={'Content-Type': 'application/json'},
+                    body=json.dumps(mock_request.json_body)
+                )
+
+                # Assert the response status code
+                assert response.status_code == 200
+
+                # Parse and validate the response
+                response_data = json.loads(response.body)
+                assert response_data['status'] == 'success'
+                assert response_data['flow'] == mock_command_response
+
+
+
+def test_flows_index():
+    # Mock context with authorizer claims
+    mock_context = {
+        'authorizer': {
+            'claims': {
+                'sub': 'user123',
+                'email': 'user@example.com',
+                'custom:client_id': '3',
+                'custom:custom:userRole': 'superadmin'
+            }
+        }
+    }
+
+    # Mock the response from the query
+    mock_query_response = [
+        {
+            "id": 1,
+            "name": "Flow 1",
+            "description": "Description of Flow 1",
+            "client_id": 3,
+            "tags": [{"id": 1, "name": "Tag1"}]
+        },
+        {
+            "id": 2,
+            "name": "Flow 2",
+            "description": "Description of Flow 2",
+            "client_id": 3,
+            "tags": [{"id": 2, "name": "Tag2"}]
+        }
+    ]
+
+    # Mock request
+    mock_request = MagicMock()
+    mock_request.context = mock_context
+    mock_request.headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer mocktoken'
+    }
+
+    with patch('chalice.app.Request', return_value=mock_request):
+        # Mock the query execution to return the mocked flows
+        with patch('chalicelib.src.modules.infrastructure.repositories.flows_repository.FlowsRepositoryPostgres.get_all',
+                   return_value=mock_query_response):
+            with Client(app) as client:
+                # Perform the GET request to the endpoint
+                response = client.http.get(
+                    '/knowledgebase/flows',
+                    headers={'Content-Type': 'application/json'}
+                )
+
+                # Assert the response status code
+                assert response.status_code == 200
+
+                # Parse and validate the response
+                response_data = json.loads(response.body)
+                assert response_data == mock_query_response
+
+
+def test_get_flow():
+    # Mock context with authorizer claims
+    mock_context = {
+        'authorizer': {
+            'claims': {
+                'sub': 'user123',
+                'email': 'user@example.com',
+                'custom:client_id': '3',
+                'custom:custom:userRole': 'superadmin'
+            }
+        }
+    }
+
+    # Flow ID to fetch
+    flow_id = 1
+
+    # Mock the response from the query
+    mock_query_response = {
+        "id": flow_id,
+        "name": "Flow 1",
+        "description": "Description of Flow 1",
+        "client_id": 3,
+        "tags": [{"id": 1, "name": "Tag1"}]
+    }
+
+    # Mock request
+    mock_request = MagicMock()
+    mock_request.context = mock_context
+    mock_request.headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer mocktoken'
+    }
+
+    with patch('chalice.app.Request', return_value=mock_request):
+        # Mock the query execution to return the mocked flow
+        with patch('chalicelib.src.modules.infrastructure.repositories.flows_repository.FlowsRepositoryPostgres.get',
+                   return_value=mock_query_response):
+            with Client(app) as client:
+                # Perform the GET request to the endpoint
+                response = client.http.get(
+                    f'/knowledgebase/flow/{flow_id}',
+                    headers={'Content-Type': 'application/json'}
+                )
+
+                # Assert the response status code
+                assert response.status_code == 200
+
+                # Parse and validate the response
+                response_data = json.loads(response.body)
+                assert response_data == mock_query_response
+                assert response_data['client_id'] == 3  # Validate client_id matches
+
+
+def test_update_flow():
+    # Mock context with authorizer claims
+    mock_context = {
+        'authorizer': {
+            'claims': {
+                'sub': 'user123',
+                'email': 'user@example.com',
+                'custom:client_id': '3',
+                'custom:custom:userRole': 'superadmin'
+            }
+        }
+    }
+
+    # Flow ID and payload for update
+    flow_id = 1
+    mock_request_body = {
+        "name": "Updated Flow",
+        "description": "Updated description of the flow",
+        "tags": [1, 2]
+    }
+
+    # Mock request
+    mock_request = MagicMock()
+    mock_request.context = mock_context
+    mock_request.headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer mocktoken'
+    }
+    mock_request.json_body = mock_request_body
+
+    with patch('chalice.app.Request', return_value=mock_request):
+        # Mock the command execution to return successfully
+        with patch('chalicelib.src.modules.infrastructure.repositories.flows_repository.FlowsRepositoryPostgres.update',
+                   return_value=None):
+            with Client(app) as client:
+                # Perform the PUT request to the endpoint
+                response = client.http.put(
+                    f'/knowledgebase/flow/{flow_id}',
+                    headers={'Content-Type': 'application/json'},
+                    body=json.dumps(mock_request.json_body)
+                )
+
+                # Assert the response status code
+                assert response.status_code == 200
+
+                # Parse and validate the response
+                response_data = json.loads(response.body)
+                assert response_data['status'] == 'success'
+                assert response_data['message'] == 'Article updated'
+
+def test_update_flow_missing_client_id():
+    # Mock context with authorizer claims missing custom:client_id
+    mock_context = {
+        'authorizer': {
+            'claims': {
+                'sub': 'user123',
+                'email': 'user@example.com',
+                'custom:custom:userRole': 'superadmin'
+            }
+        }
+    }
+
+    # Flow ID and payload for update
+    flow_id = 1
+    mock_request_body = {
+        "name": "Updated Flow",
+        "description": "Updated description of the flow",
+        "tags": [1, 2]
+    }
+
+    # Mock request
+    mock_request = MagicMock()
+    mock_request.context = mock_context
+    mock_request.headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer mocktoken'
+    }
+    mock_request.json_body = mock_request_body
+
+    with patch('chalice.app.Request', return_value=mock_request):
+        with Client(app) as client:
+            # Perform the PUT request to the endpoint
+            response = client.http.put(
+                f'/knowledgebase/flow/{flow_id}',
+                headers={'Content-Type': 'application/json'},
+                body=json.dumps(mock_request.json_body)
+            )
+
+            # Assert the response status code
+            assert response.status_code == 400
+
+            # Parse and validate the response
+            response_data = json.loads(response.body)
+            assert response_data['Message'] == 'User does not have client id'
+
+
+def test_delete_flow():
+    # Mock context with authorizer claims
+    mock_context = {
+        'authorizer': {
+            'claims': {
+                'sub': 'user123',
+                'email': 'user@example.com',
+                'custom:client_id': '3',
+                'custom:custom:userRole': 'superadmin'
+            }
+        }
+    }
+
+    # Flow ID to delete
+    flow_id = 1
+
+    # Mock request
+    mock_request = MagicMock()
+    mock_request.context = mock_context
+    mock_request.headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer mocktoken'
+    }
+
+    with patch('chalice.app.Request', return_value=mock_request):
+        # Mock the command execution to succeed
+        with patch('chalicelib.src.modules.infrastructure.repositories.flows_repository.FlowsRepositoryPostgres.remove',
+                   return_value=None):
+            with Client(app) as client:
+                # Perform the DELETE request to the endpoint
+                response = client.http.delete(
+                    f'/knowledgebase/flow/{flow_id}',
+                    headers={'Content-Type': 'application/json'}
+                )
+
+                # Assert the response status code
+                assert response.status_code == 200
+
+                # Parse and validate the response
+                response_data = json.loads(response.body)
+                assert response_data['status'] == 'success'
+                assert response_data['message'] == 'Flow deleted'
+
+
+def test_delete_flow_unexpected_error():
+    # Mock context with authorizer claims
+    mock_context = {
+        'authorizer': {
+            'claims': {
+                'sub': 'user123',
+                'email': 'user@example.com',
+                'custom:client_id': '3',
+                'custom:custom:userRole': 'superadmin'
+            }
+        }
+    }
+
+    # Flow ID to delete
+    flow_id = 1
+
+    # Mock request
+    mock_request = MagicMock()
+    mock_request.context = mock_context
+    mock_request.headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer mocktoken'
+    }
+
+    with patch('chalice.app.Request', return_value=mock_request):
+        # Mock the command execution to raise a generic exception
+        with patch('chalicelib.src.modules.infrastructure.repositories.flows_repository.FlowsRepositoryPostgres.remove',
+                   side_effect=Exception("Unexpected error")):
+            with Client(app) as client:
+                # Perform the DELETE request to the endpoint
+                response = client.http.delete(
+                    f'/knowledgebase/flow/{flow_id}',
+                    headers={'Content-Type': 'application/json'}
+                )
+
+                # Assert the response status code
+                assert response.status_code == 500
+
+                # Parse and validate the response
+                response_data = json.loads(response.body)
+                assert response_data['Message'] == 'Error deleting flow'
+
+
+def test_delete_flow_missing_client_id():
+    # Mock context with authorizer claims missing custom:client_id
+    mock_context = {
+        'authorizer': {
+            'claims': {
+                'sub': 'user123',
+                'email': 'user@example.com',
+                'custom:custom:userRole': 'superadmin'
+            }
+        }
+    }
+
+    # Flow ID to delete
+    flow_id = 1
+
+    # Mock request
+    mock_request = MagicMock()
+    mock_request.context = mock_context
+    mock_request.headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer mocktoken'
+    }
+
+    with patch('chalice.app.Request', return_value=mock_request):
+        with Client(app) as client:
+            # Perform the DELETE request to the endpoint
+            response = client.http.delete(
+                f'/knowledgebase/flow/{flow_id}',
+                headers={'Content-Type': 'application/json'}
+            )
+
+            # Assert the response status code
+            assert response.status_code == 400
+
+            # Parse and validate the response
+            response_data = json.loads(response.body)
+            assert response_data['Message'] == 'User does not have client id'
+
+
+def test_add_flow_step_success():
+    # Mock context with authorizer claims
+    mock_context = {
+        'authorizer': {
+            'claims': {
+                'sub': 'user123',
+                'email': 'user@example.com',
+                'custom:client_id': '3',
+                'custom:custom:userRole': 'superadmin'
+            }
+        }
+    }
+
+    # Mock request body
+    mock_request_body = {
+        "type": "Validation",
+        "description": "Step for validation purposes",
+        "flow_id": 1
+    }
+
+    # Mock the response from the command
+    mock_command_response = {
+        "id": 1,
+        "description": "Step for validation purposes",
+        "type": "Validation",
+        "flow_id": 1
+    }
+
+    # Mock request
+    mock_request = MagicMock()
+    mock_request.context = mock_context
+    mock_request.headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer mocktoken'
+    }
+    mock_request.json_body = mock_request_body
+
+    with patch('chalice.app.Request', return_value=mock_request):
+        # Mock the command execution to return the mocked flow step
+        with patch('chalicelib.src.modules.infrastructure.repositories.flow_steps_repository.FlowStepsRepositoryPostgres.add',
+                   return_value=mock_command_response):
+            with Client(app) as client:
+                # Perform the POST request to the endpoint
+                response = client.http.post(
+                    '/knowledgebase/flow/step',
+                    headers={'Content-Type': 'application/json'},
+                    body=json.dumps(mock_request.json_body)
+                )
+
+                # Assert the response status code
+                assert response.status_code == 200
+
+                # Parse and validate the response
+                response_data = json.loads(response.body)
+                assert response_data['status'] == 'success'
+                assert response_data['flow step'] == mock_command_response
+
+
+def test_get_flow_step_success():
+    # Mock context with authorizer claims
+    mock_context = {
+        'authorizer': {
+            'claims': {
+                'sub': 'user123',
+                'email': 'user@example.com',
+                'custom:client_id': '3',
+                'custom:custom:userRole': 'superadmin'
+            }
+        }
+    }
+
+    # Flow step ID to fetch
+    flow_step_id = 1
+
+    # Mock the response from the query
+    mock_query_response = {
+        "id": flow_step_id,
+        "description": "Step for validation purposes",
+        "type": "Validation",
+        "flow": {
+            "id": 1,
+            "client_id": 3
+        }
+    }
+
+    # Mock request
+    mock_request = MagicMock()
+    mock_request.context = mock_context
+    mock_request.headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer mocktoken'
+    }
+
+    with patch('chalice.app.Request', return_value=mock_request):
+        # Mock the query execution to return the mocked flow step
+        with patch('chalicelib.src.modules.infrastructure.repositories.flow_steps_repository.FlowStepsRepositoryPostgres.get',
+                   return_value=mock_query_response):
+            with Client(app) as client:
+                # Perform the GET request to the endpoint
+                response = client.http.get(
+                    f'/knowledgebase/flow/step/{flow_step_id}',
+                    headers={'Content-Type': 'application/json'}
+                )
+
+                # Assert the response status code
+                assert response.status_code == 200
+
+                # Parse and validate the response
+                response_data = json.loads(response.body)
+                assert response_data == mock_query_response
+
+
+def test_get_flow_step_unexpected_error():
+    # Mock context with authorizer claims
+    mock_context = {
+        'authorizer': {
+            'claims': {
+                'sub': 'user123',
+                'email': 'user@example.com',
+                'custom:client_id': '3',
+                'custom:custom:userRole': 'superadmin'
+            }
+        }
+    }
+
+    # Flow step ID to fetch
+    flow_step_id = 1
+
+    # Mock request
+    mock_request = MagicMock()
+    mock_request.context = mock_context
+    mock_request.headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer mocktoken'
+    }
+
+    with patch('chalice.app.Request', return_value=mock_request):
+        # Mock the query execution to raise a generic exception
+        with patch('chalicelib.src.modules.infrastructure.repositories.flow_steps_repository.FlowStepsRepositoryPostgres.get',
+                   side_effect=Exception("Unexpected error")):
+            with Client(app) as client:
+                # Perform the GET request to the endpoint
+                response = client.http.get(
+                    f'/knowledgebase/flow/step/{flow_step_id}',
+                    headers={'Content-Type': 'application/json'}
+                )
+
+                # Assert the response status code
+                assert response.status_code == 500
+
+                # Parse and validate the response
+                response_data = json.loads(response.body)
+                assert response_data['Message'] == f'Error loading flow step {flow_step_id}'
+
+
+def test_flows_steps_index_success():
+    # Mock context with authorizer claims
+    mock_context = {
+        'authorizer': {
+            'claims': {
+                'sub': 'user123',
+                'email': 'user@example.com',
+                'custom:client_id': '3',
+                'custom:custom:userRole': 'superadmin'
+            }
+        }
+    }
+
+    # Flow ID for which steps are fetched
+    flow_id = 1
+
+    # Mock the response from the query
+    mock_query_response = [
+        {
+            "id": 1,
+            "description": "Step 1",
+            "type": "Validation",
+            "flow_id": flow_id
+        },
+        {
+            "id": 2,
+            "description": "Step 2",
+            "type": "Diagnostic",
+            "flow_id": flow_id
+        }
+    ]
+
+    # Mock request
+    mock_request = MagicMock()
+    mock_request.context = mock_context
+    mock_request.headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer mocktoken'
+    }
+
+    with patch('chalice.app.Request', return_value=mock_request):
+        # Mock the query execution to return the mocked steps
+        with patch('chalicelib.src.modules.infrastructure.repositories.flow_steps_repository.FlowStepsRepositoryPostgres.get_all',
+                   return_value=mock_query_response):
+            with Client(app) as client:
+                # Perform the GET request to the endpoint
+                response = client.http.get(
+                    f'/knowledgebase/flow/steps/{flow_id}',
+                    headers={'Content-Type': 'application/json'}
+                )
+
+                # Assert the response status code
+                assert response.status_code == 200
+
+                # Parse and validate the response
+                response_data = json.loads(response.body)
+                assert response_data == mock_query_response
+
+
+def test_flows_steps_index_flow_not_found():
+    # Mock context with authorizer claims
+    mock_context = {
+        'authorizer': {
+            'claims': {
+                'sub': 'user123',
+                'email': 'user@example.com',
+                'custom:client_id': '3',
+                'custom:custom:userRole': 'superadmin'
+            }
+        }
+    }
+
+    # Flow ID for which steps are fetched
+    flow_id = 999  # Non-existent flow_id
+
+    # Mock request
+    mock_request = MagicMock()
+    mock_request.context = mock_context
+    mock_request.headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer mocktoken'
+    }
+
+    with patch('chalice.app.Request', return_value=mock_request):
+        # Mock the query execution to raise a ValueError
+        with patch('chalicelib.src.modules.infrastructure.repositories.flow_steps_repository.FlowStepsRepositoryPostgres.get_all',
+                   side_effect=ValueError("Flow not found")):
+            with Client(app) as client:
+                # Perform the GET request to the endpoint
+                response = client.http.get(
+                    f'/knowledgebase/flow/steps/{flow_id}',
+                    headers={'Content-Type': 'application/json'}
+                )
+
+                # Assert the response status code
+                assert response.status_code == 400
+
+                # Parse and validate the response
+                response_data = json.loads(response.body)
+                assert response_data['Message'] == 'Flow not found'
+
+
+def test_delete_flow_step_success():
+    # Mock context with authorizer claims
+    mock_context = {
+        'authorizer': {
+            'claims': {
+                'sub': 'user123',
+                'email': 'user@example.com',
+                'custom:client_id': '3',
+                'custom:custom:userRole': 'superadmin'
+            }
+        }
+    }
+
+    # Flow step ID to delete
+    flow_step_id = 1
+
+    # Mock request
+    mock_request = MagicMock()
+    mock_request.context = mock_context
+    mock_request.headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer mocktoken'
+    }
+
+    with patch('chalice.app.Request', return_value=mock_request):
+        # Mock the command execution to succeed
+        with patch('chalicelib.src.modules.infrastructure.repositories.flow_steps_repository.FlowStepsRepositoryPostgres.remove',
+                   return_value=None):
+            with Client(app) as client:
+                # Perform the DELETE request to the endpoint
+                response = client.http.delete(
+                    f'/knowledgebase/flow/step/{flow_step_id}',
+                    headers={'Content-Type': 'application/json'}
+                )
+
+                # Assert the response status code
+                assert response.status_code == 200
+
+                # Parse and validate the response
+                response_data = json.loads(response.body)
+                assert response_data['status'] == 'success'
+                assert response_data['message'] == 'Flow step deleted'
+
+
+def test_update_flow_step_success():
+    # Mock context with authorizer claims
+    mock_context = {
+        'authorizer': {
+            'claims': {
+                'sub': 'user123',
+                'email': 'user@example.com',
+                'custom:client_id': '3',
+                'custom:custom:userRole': 'superadmin'
+            }
+        }
+    }
+
+    # Flow step ID to update
+    flow_step_id = 1
+
+    # Mock request body
+    mock_request_body = {
+        "description": "Updated description",
+        "type": "Diagnostic"
+    }
+
+    # Mock request
+    mock_request = MagicMock()
+    mock_request.context = mock_context
+    mock_request.headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer mocktoken'
+    }
+    mock_request.json_body = mock_request_body
+
+    with patch('chalice.app.Request', return_value=mock_request):
+        # Mock the command execution to succeed
+        with patch('chalicelib.src.modules.infrastructure.repositories.flow_steps_repository.FlowStepsRepositoryPostgres.update',
+                   return_value=None):
+            with Client(app) as client:
+                # Perform the PUT request to the endpoint
+                response = client.http.put(
+                    f'/knowledgebase/flow/step/{flow_step_id}',
+                    headers={'Content-Type': 'application/json'},
+                    body=json.dumps(mock_request.json_body)
+                )
+
+                # Assert the response status code
+                assert response.status_code == 200
+
+                # Parse and validate the response
+                response_data = json.loads(response.body)
+                assert response_data['status'] == 'success'
+                assert response_data['message'] == 'Flow step updated'
